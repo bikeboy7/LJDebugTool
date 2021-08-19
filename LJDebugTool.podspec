@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
     s.license              = { :type => "MIT", :file => "LICENSE" }
     s.author             = { "bikeBoy7" => "810256984@qq.com" }
     s.source_files = "LJDebugTool/*"
-    s.source       = { :git => "https://github.com/bikeboy7/LJDebugTool", :tag => 1.0.0 }
+    s.source       = { :git => "https://github.com/bikeboy7/LJDebugTool.git", :tag => 1.0.0 }
     s.swift_version = '5.0'
 end
 

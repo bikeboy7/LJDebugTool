@@ -8,9 +8,10 @@
 
 import UIKit
 
+/// 日志变化回调
+public typealias CurrentLogDidChanged = (LJDebugLogModel) -> ()
+
 public class LJDebugTool: NSObject {
-    /// 日志变化回调
-    typealias CurrentLogDidChanged = (LJDebugLogModel) -> ()
     
     public static let share = LJDebugTool()
     
@@ -260,10 +261,10 @@ extension LJDebugTool {
     }
 }
 
-func LJLog<T>(_ message: T,
-              file: String = #file,
-              method: String = #function,
-              line: Int = #line) {
+open func LJLog<T>(_ message: T,
+                   file: String = #file,
+                   method: String = #function,
+                   line: Int = #line) {
     #if DEBUG
     let log = "\(Date()), \((file as NSString).lastPathComponent)[\(line)], \(method):\n \(message)"
     print(log)

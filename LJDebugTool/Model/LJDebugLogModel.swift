@@ -6,7 +6,7 @@
 //
 
 import Foundation
-struct LJDebugLogModel: Codable {
+public struct LJDebugLogModel: Codable {
     /// id
     var logId: String
     /// 创建时间

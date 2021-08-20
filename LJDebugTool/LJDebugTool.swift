@@ -8,7 +8,7 @@
 
 import UIKit
 
-class LJDebugTool: NSObject {
+public class LJDebugTool: NSObject {
     /// 日志变化回调
     typealias CurrentLogDidChanged = (LJDebugLogModel) -> ()
     

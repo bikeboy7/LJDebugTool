@@ -261,7 +261,7 @@ extension LJDebugTool {
     }
 }
 
-open func LJLog<T>(_ message: T,
+public func LJLog<T>(_ message: T,
                    file: String = #file,
                    method: String = #function,
                    line: Int = #line) {

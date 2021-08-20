@@ -200,7 +200,6 @@ extension LJDebugTool {
             return false
         }
     }
-    
 }
 
 //MARK: - 通知监听

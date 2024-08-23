@@ -1,56 +1,64 @@
 //
 //  LJDebugTool.swift
-//  Peach
+//  LJDebugTool
 //
 //  Created by panjinyong on 2021/6/17.
 //  Copyright © 2021 techne. All rights reserved.
 //
 
 import UIKit
+import CoreLocation
 
-/// 日志变化回调
-public typealias CurrentLogDidChanged = (LJDebugLogModel) -> ()
+/// Log change callback
+public typealias CurrentLogDidChanged = (LJDebugLog) -> Void
+
+// custom location seted callback
+public typealias LocationSetCallback = (CLLocationCoordinate2D?) -> Void
 
 public class LJDebugTool: NSObject {
     
     public static let share = LJDebugTool()
     
-    /// 当前日志
-    private(set) lazy var currentLog: LJDebugLogModel = {
+    /// current Log
+    private(set) lazy var currentLog: LJDebugLog = {
         let date = Date()
-        return LJDebugLogModel.init(logId: "\(Int(date.timeIntervalSince1970 * 1000))", createDate: date, fileName: "\(Int(date.timeIntervalSince1970 * 1000)).txt")
+        return LJDebugLog.init(
+            logId: "\(Int(date.timeIntervalSince1970 * 1000))_\(Int.random(in: 1...100000))",
+            createDate: date,
+            fileName: "\(Int(date.timeIntervalSince1970 * 1000))_\(LJDebugTool.string(date: date)).txt"
+        )
     }()
     
-    /// 所有历史日志
-    private(set) lazy var historyLogArray: [LJDebugLogModel] = {
+    /// historyLogArray
+    private(set) lazy var historyLogArray: [LJDebugLog] = {
         loadLogList()?.sorted(by: {$0.createDate.timeIntervalSince1970 > $1.createDate.timeIntervalSince1970}) ?? []
     }()
             
-    /// 日志变化回调集合 key: hash
+    /// current log didChanged callback Dic, key: hash
     private var currentLogDidChangedDic: [Int: CurrentLogDidChanged] = [:]
+    
+    /// custom location did update call back dic
+    var locationSetCallBacks: [String: LocationSetCallback] = [:]
+    
+    /// custom location
+    public var customLocation: CLLocationCoordinate2D?
 
     private override init() {
         super.init()
         addObserver()
         addCrashObserver()
+        loadCustomLocationCache()
     }
 
-    //MARK: - UI
+    // MARK: - UI
 
-    /// 显示日志按键
-    fileprivate lazy var logButton: UIWindow = {
-        let window = UIWindow()
-        window.rootViewController = UIViewController()
-        window.windowLevel = UIWindow.Level.init(UIWindow.Level.alert.rawValue + 10)
-        window.backgroundColor = .red
-        window.alpha = 0.5
+    fileprivate lazy var logButton: LJDebugBaseWindow = {
+        let window = LJDebugBaseWindow(frame: .zero)
         window.addGestureRecognizer(UITapGestureRecognizer.init(target: self, action: #selector(logWindowTapAction)))
-        window.addGestureRecognizer(UIPanGestureRecognizer.init(target: self, action: #selector(logWindowPanAction(pan:))))
         window.addGestureRecognizer(UILongPressGestureRecognizer.init(target: self, action: #selector(logWindowLongPressAction(press:))))
         return window
     }()
     
-    /// 日志显示背景
     private lazy var logWindow: UIWindow = {
         let window = UIWindow()
         window.backgroundColor = .white
@@ -60,17 +68,15 @@ public class LJDebugTool: NSObject {
         return window
     }()
     
-    /// 日志显示控制器
-    private lazy var logVC: LJLogViewController = {
-        LJLogViewController()
+    private(set) lazy var logVC: LJLogViewController = {
+        .init()
     }()
     
-    /// 点击浮窗显示日志
     @objc private func logWindowTapAction() {
         logWindow.isHidden = !logWindow.isHidden
     }
     
-    /// 长按浮窗日志滚动到底部
+    /// scroll to the bottom
     @objc private func logWindowLongPressAction(press: UILongPressGestureRecognizer) {
         switch press.state {
         case .began:
@@ -80,71 +86,46 @@ public class LJDebugTool: NSObject {
         }
     }
     
-    /// 拖动浮窗
-    @objc private func logWindowPanAction(pan: UIPanGestureRecognizer) {
-        let translation = pan.translation(in: logButton)
-        var frame = logButton.frame
-        var newX = frame.origin.x + translation.x
-        if newX < 0 {
-            newX = 0
-        }else if newX + frame.width > LJScreen.width {
-            newX = LJScreen.width - frame.width
-        }
-        var newY = frame.origin.y + translation.y
-        if newY < 0 {
-            newY = 0
-        }else if newY + frame.height > LJScreen.height {
-            newY = LJScreen.height - frame.height
-        }
-        frame.origin.x = newX
-        frame.origin.y = newY
-        logButton.frame = frame
-        pan.setTranslation(.zero, in: logButton)
-    }
+    // MARK: - Public
     
-    //MARK: - Public
-    
-    /// 启动
+    /// launch
     public func launch() {
-        logButton.frame = CGRect(x: LJScreen.width - 100, y: LJScreen.height - 100, width: 40, height: 40)
+        logButton.frame = CGRect(x: UIScreen.main.bounds.size.width - 100, y: UIScreen.main.bounds.size.height - 100, width: 40, height: 40)
         logButton.isHidden = false
     }
             
-    /// 拼接日志
-    /// - Parameters:
-    ///   - log: 日志
-    ///   - isCrash: 是否崩溃日志
+    /// append Log
     public func appendLog(_ log: String, isCrash: Bool = false) {
         self.currentLog.text.append("\n-------------------------\n\(log)")
         self.currentLog.isCrash = isCrash
         DispatchQueue.main.async {
-            self.currentLogDidChangedDic.values.forEach{$0(self.currentLog)}
+            self.currentLogDidChangedDic.values.forEach { $0(self.currentLog) }
         }
     }
     
-    /// 添加当前日志监听
-    /// - Parameters:
-    ///   - listener: 监听者
-    ///   - currentLogDidChanged: 监听回调
-    /// - Returns: description
+    /// custom actions
+    public func resetCustomActions(_ actions: [LJDebugCustomAction]) {
+        logVC.customActions = actions
+    }
+    
+    /// Adds the current log listener
     public func addCurrentLogListener(_ listener: NSObjectProtocol, currentLogDidChanged: @escaping CurrentLogDidChanged) {
         self.currentLogDidChangedDic[listener.hash] = currentLogDidChanged
     }
     
-    /// 移除当前日志监听
-    /// - Parameter listener: 监听者
+    /// remove the current log listener
     public func removeCurrentLogListener(_ listener: NSObjectProtocol) {
         self.currentLogDidChangedDic.removeValue(forKey: listener.hash)
     }
 }
 
-//MARK: - 日志的保存、删除
+// MARK: - Save and delete logs
 
 extension LJDebugTool {
-    /// 保存日志的文件夹
-    public static let logCachesDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first?.appending("/ljDebugLog") ?? ""
+    /// logCachesDirectory
+    private static let logCachesDirectory = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first?.appending("/ljDebugLog") ?? ""
     
-    /// 保存日志
+    /// saveCurrentLog
     private func saveCurrentLog() {
         if !FileManager.default.fileExists(atPath: LJDebugTool.logCachesDirectory) {
             do {
@@ -162,19 +143,18 @@ extension LJDebugTool {
         }
     }
     
-    /// 获取所有日志
-    /// - Returns: 日志
-    private func loadLogList() -> [LJDebugLogModel]? {
+    /// load all log list
+    private func loadLogList() -> [LJDebugLog]? {
         do {
-            var logArray: [LJDebugLogModel] = []
+            var logArray: [LJDebugLog] = []
             let fileList = try FileManager.default.contentsOfDirectory(atPath: LJDebugTool.logCachesDirectory)
             fileList.forEach { (file) in
                 let url = URL.init(fileURLWithPath: "\(LJDebugTool.logCachesDirectory)/\(file)")
                 do {
                     let data = try Data.init(contentsOf: url)
-                    let logModel = try JSONDecoder.init().decode(LJDebugLogModel.self, from: data)
+                    let logModel = try JSONDecoder.init().decode(LJDebugLog.self, from: data)
                     logArray.append(logModel)
-                }catch {
+                } catch {
                     print(error)
                 }
             }
@@ -184,11 +164,8 @@ extension LJDebugTool {
             return nil
         }
     }
-    
-    //MARK: Public 清除所有日志
-
-    /// 清除所有日志
-    /// - Returns: 结果
+        
+    /// clear all Log
     @discardableResult
     public func clearAllLog() -> Bool {
         do {
@@ -202,7 +179,7 @@ extension LJDebugTool {
     }
 }
 
-//MARK: - 通知监听
+// MARK: - Observer
 
 extension LJDebugTool {
     private func addObserver() {
@@ -211,14 +188,14 @@ extension LJDebugTool {
     }
     
     @objc private func didBecomeKeyNotification() {
-        if UIApplication.shared.keyWindow == logButton {
-            // 不让浮窗成为keyWindow
-            logButton.isHidden = true
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.1) {[weak self] in
-                guard let self = self else {return}
-                self.logButton.isHidden = false
-            }
-        }
+//        if UIApplication.shared.keyWindow == logButton {
+//            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.1) { in
+//                self.logButton.isHidden = true
+//                DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.1) { in
+//                    self.logButton.isHidden = false
+//                }
+//            }
+//        }
     }
     
     @objc private func appWillTerminate() {
@@ -226,11 +203,9 @@ extension LJDebugTool {
     }
 }
 
-//MARK: - 奔溃监听
-
+// MARK: crash observe
 extension LJDebugTool {
     
-    /// 设置奔溃监听
     private func addCrashObserver() {
         NSSetUncaughtExceptionHandler { (exception) in
             let arr = exception.callStackSymbols
@@ -241,7 +216,7 @@ extension LJDebugTool {
             LJDebugTool.share.saveCurrentLog()
         }
         
-        func signalExceptionHandler(signal:Int32) {
+        func signalExceptionHandler(signal: Int32) {
             LJDebugTool.share.appendLog(Thread.callStackSymbols.joined(separator: "\n"), isCrash: true)
             LJDebugTool.share.saveCurrentLog()
             exit(signal)
@@ -260,13 +235,29 @@ extension LJDebugTool {
     }
 }
 
-public func LJLog<T>(_ message: T,
-                   file: String = #file,
-                   method: String = #function,
-                   line: Int = #line) {
+func LJLog<T>(
+    _ message: T,
+    file: String = #file,
+    method: String = #function,
+    line: Int = #line
+) {
     #if DEBUG
-    let log = "\(Date()), \((file as NSString).lastPathComponent)[\(line)], \(method):\n \(message)"
+    let date = LJDebugTool.string(date: Date())
+    let log = "\(date), \((file as NSString).lastPathComponent)[\(line)], \(method):\n \(message)"
     print(log)
     LJDebugTool.share.appendLog(log)
     #endif
+}
+
+extension LJDebugTool {
+    static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter.init()
+        formatter.locale = Locale.init(identifier: "en_US_POSIX")
+        return formatter
+    }()
+    
+    static func string(date: Date, format: String = "yyyy-MM-dd HH:mm:ss:SSSZ") -> String {
+        dateFormatter.dateFormat = format
+        return dateFormatter.string(from: date)
+    }
 }

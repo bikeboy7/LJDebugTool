@@ -1,6 +1,6 @@
 //
 //  LJLogListViewController.swift
-//  FairfieldUser
+//  LJDebugTool
 //
 //  Created by panjinyong on 2021/7/9.
 //
@@ -12,12 +12,9 @@ class LJLogListViewController: UIViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(false, animated: true)
     }
-    
-    /// 选中某日志回调
-    public var didSelectedLog: ((LJDebugLogModel) -> ())?
-    
-    /// 日志列表
-    private var logArray: [LJDebugLogModel] = []
+        
+    /// log Array
+    private var logArray: [LJDebugLog] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,9 +24,9 @@ class LJLogListViewController: UIViewController {
     
     private func initView() {
         view.addSubview(tableView)
-        tableView.frame = CGRect(x: 0, y: LJScreen.navigationBarHeight, width: LJScreen.width, height: LJScreen.height - LJScreen.navigationBarHeight - LJScreen.safeAreaBottomHeight)
-        let removeItem = UIBarButtonItem.init(title: "删除所有", style: .done, target: self, action: #selector(removeAction))
-        let shareItem = UIBarButtonItem.init(title: "分享", style: .plain, target: self, action: #selector(shareAction))
+        tableView.frame = view.safeAreaLayoutGuide.layoutFrame
+        let removeItem = UIBarButtonItem.init(title: "remove all", style: .plain, target: self, action: #selector(removeAction))
+        let shareItem = UIBarButtonItem.init(title: "share", style: .plain, target: self, action: #selector(shareAction))
         navigationItem.setRightBarButtonItems([shareItem, removeItem], animated: true)
     }
     
@@ -43,23 +40,23 @@ class LJLogListViewController: UIViewController {
         return view
     }()
     
-    //MARK: - Action
+    // MARK: - Action
 
     @objc private func removeAction() {
         guard !self.logArray.isEmpty else {return}
-        let alert = UIAlertController.init(title: "确定删除吗？", message: nil, preferredStyle: .alert)
-        alert.addAction(.init(title: "确定", style: .destructive, handler: { (_) in
+        let alert = UIAlertController.init(title: "Confirm delete？", message: nil, preferredStyle: .alert)
+        alert.addAction(.init(title: "confirm", style: .destructive, handler: { (_) in
             LJDebugTool.share.clearAllLog()
             self.logArray.removeAll()
             self.tableView.reloadData()
         }))
-        alert.addAction(.init(title: "取消", style: .cancel, handler: nil))
+        alert.addAction(.init(title: "cancel", style: .cancel, handler: nil))
         present(alert, animated: true, completion: nil)
     }
     
     @objc private func shareAction() {
         guard !LJDebugTool.share.historyLogArray.isEmpty else {return}
-        let allLog = LJDebugTool.share.historyLogArray.map{"\n\n\($0.createDate)+++++++++++++++++++++++++++++++++++++\n\($0.text)"}.joined(separator: "\n\n\n")
+        let allLog = LJDebugTool.share.historyLogArray.map { "\n\n\($0.createDate)+++++++++++++++++++++++++++++++++++++\n\($0.text)" }.joined(separator: "\n\n\n")
         
         let url = URL.init(fileURLWithPath: "\(NSTemporaryDirectory())/LJAllLog.txt")
         do {
@@ -70,11 +67,9 @@ class LJLogListViewController: UIViewController {
         let activity = UIActivityViewController.init(activityItems: [url], applicationActivities: nil)
         present(activity, animated: true, completion: nil)
     }
-
-    
 }
 
-//MARK: - TableViewDelegate
+// MARK: - TableViewDelegate
 extension LJLogListViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         logArray.count
@@ -86,16 +81,17 @@ extension LJLogListViewController: UITableViewDelegate, UITableViewDataSource {
         return cell
     }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        didSelectedLog?(logArray[indexPath.row])
+        let vc = LJLogDetailsViewController()
+        vc.log = logArray[indexPath.row]
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
-
-//MARK: - Cell
+// MARK: - Cell
 
 extension LJLogListViewController {
     class TableViewCell: UITableViewCell {
-        var log: LJDebugLogModel? {
+        var log: LJDebugLog? {
             didSet {
                 updateView()
             }
@@ -110,7 +106,7 @@ extension LJLogListViewController {
             fatalError("init(coder:) has not been implemented")
         }
         
-        /// 标题
+        /// titleLabel
         private lazy var titleLabel: UILabel = {
             let view = UILabel()
             view.textColor = .black
@@ -135,4 +131,3 @@ extension LJLogListViewController {
         }
     }
 }
-

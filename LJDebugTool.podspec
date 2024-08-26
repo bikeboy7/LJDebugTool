@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
     s.name         = "LJDebugTool"
-    s.version      = "1.0.7"
-    s.ios.deployment_target = '10.0'
+    s.version      = "1.0.8"
+    s.ios.deployment_target = '11.0'
     s.summary      = "日志实时显示、收集、导出"
     s.homepage     = "https://github.com/bikeboy7/LJDebugTool"
     s.license              = { :type => "MIT", :file => "LICENSE" }
@@ -10,4 +10,3 @@ Pod::Spec.new do |s|
     s.source       = { :git => "https://github.com/bikeboy7/LJDebugTool.git", :tag => s.version }
     s.swift_version = '5.0'
 end
-

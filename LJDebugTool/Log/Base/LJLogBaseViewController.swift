@@ -37,7 +37,6 @@ class LJLogBaseViewController: UIViewController {
     /// log
     private(set) lazy var logTextView: UITextView = {
         let view = UITextView()
-        view.isEditable = false
         view.inputView = UIView()
         view.delegate = self
         return view

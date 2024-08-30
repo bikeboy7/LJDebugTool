@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name         = "LJDebugTool"
-    s.version      = "1.0.8"
+    s.version      = "1.0.9"
     s.ios.deployment_target = '11.0'
     s.summary      = "日志实时显示、收集、导出"
     s.homepage     = "https://github.com/bikeboy7/LJDebugTool"
